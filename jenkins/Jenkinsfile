@@ -1,0 +1,45 @@
+pipeline {
+agent any
+    stages {
+    stage('clone private repo') {
+                    steps{
+        	        checkout([$class: 'GitSCM', branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[credentialsId: 'ssh', url: 'git@git.nju.edu.cn:bestoy/frontend-cotest-mirror.git']]])
+                    }
+                }
+        stage('Build') {
+        agent {
+                    docker {
+                        image 'node:16-alpine'
+                        args '-p 3000:3000'
+                    }
+                }
+            steps {
+                sh "node -v"
+                sh "npm -v"
+                sh '''
+                npm install
+                rm -rf ./dist/*
+                npm run build
+                rm -rf /var/jenkins_home/www/*
+                cp -rf ./dist/* /var/jenkins_home/www
+                '''
+            }
+        }
+        stage('Deliver') {
+                    steps {
+                        //sh './jenkins/scripts/deliver.sh'
+                        echo 'hello world'
+                        //input message: 'Finished using the web site? (Click "Proceed" to continue)'
+                        //sh './jenkins/scripts/kill.sh'
+                    }
+                    post {
+                            success {
+                              updateGitlabCommitStatus name: 'build', state: 'success'
+                            }
+                            failure {
+                              updateGitlabCommitStatus name: 'build', state: 'failed'
+                            }
+                        }
+                }
+    }
+}
